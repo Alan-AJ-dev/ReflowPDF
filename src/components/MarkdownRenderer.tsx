@@ -9,37 +9,39 @@ interface MarkdownRendererProps {
   content: string;
 }
 
+function headingId(children: React.ReactNode) {
+  const getText = (node: React.ReactNode): string => React.Children.toArray(node).map((child) => {
+    if (typeof child === 'string' || typeof child === 'number') return String(child);
+    if (React.isValidElement<{ children?: React.ReactNode }>(child)) return getText(child.props.children);
+    return '';
+  }).join('');
+  const text = getText(children);
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
+}
+
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
   return (
-    <div className="prose prose-invert max-w-none text-[#e6e6e6] prose-headings:text-white prose-a:text-blue-400 prose-blockquote:border-l-4 prose-blockquote:border-gray-500 prose-blockquote:bg-[#202020] prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:not-italic prose-blockquote:rounded-r-md">
+    <div className="document-content">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
-          img: ({ node, ...props }) => (
-            <div className="flex justify-center my-6">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                {...props}
-                className="max-w-full h-auto rounded-lg shadow-lg"
-                alt={props.alt || 'Document Image'}
-              />
+          h1: ({ node: _node, children, ...props }) => <h2 id={headingId(children)} {...props}>{children}</h2>,
+          h2: ({ node: _node, children, ...props }) => <h2 id={headingId(children)} {...props}>{children}</h2>,
+          h3: ({ node: _node, children, ...props }) => <h3 id={headingId(children)} {...props}>{children}</h3>,
+          img: ({ node: _node, ...props }) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img {...props} className="document-image" alt={props.alt || 'Document figure'} loading="lazy" />
+          ),
+          blockquote: ({ node: _node, children, ...props }) => <blockquote {...props}>{children}</blockquote>,
+          table: ({ node: _node, children, ...props }) => (
+            <div className="document-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
+              <table {...props}>{children}</table>
             </div>
           ),
-          blockquote: ({ node, ...props }) => (
-            <blockquote {...props} className="my-4" />
-          ),
-          table: ({ node, ...props }) => (
-            <div className="overflow-x-auto my-6">
-              <table {...props} className="w-full text-left border-collapse" />
-            </div>
-          ),
-          th: ({ node, ...props }) => (
-            <th {...props} className="border-b border-gray-600 p-2 text-gray-300" />
-          ),
-          td: ({ node, ...props }) => (
-            <td {...props} className="border-b border-gray-700 p-2" />
-          ),
+          th: ({ node: _node, children, ...props }) => <th {...props}>{children}</th>,
+          td: ({ node: _node, children, ...props }) => <td {...props}>{children}</td>,
+          pre: ({ node: _node, children, ...props }) => <pre {...props}>{children}</pre>,
         }}
       >
         {content}

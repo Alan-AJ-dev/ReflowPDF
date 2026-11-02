@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
+import Link from 'next/link';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { Settings, List, Moon, Sun, PanelRightClose } from 'lucide-react';
+import { ArrowLeft, List, Moon, Sun, X } from 'lucide-react';
 
 interface DocumentViewerProps {
   title: string;
@@ -10,76 +12,81 @@ interface DocumentViewerProps {
 }
 
 export function DocumentViewer({ title, markdown }: DocumentViewerProps) {
-  const [fontSize, setFontSize] = useState<number>(16);
-  const [darkMode, setDarkMode] = useState<boolean>(true);
-  const [progress, setProgress] = useState<number>(0);
+  const [fontSize, setFontSize] = useState(17);
+  const [darkMode, setDarkMode] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [tocOpen, setTocOpen] = useState(false);
+
+  const headings = useMemo(() => markdown.split('\n').flatMap((line) => {
+    const match = /^(#{1,3})\s+(.+?)\s*#*\s*$/.exec(line);
+    if (!match) return [];
+    const text = match[2].replace(/[`*_~]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+    const id = text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
+    return [{ text, id, level: match[1].length }];
+  }), [markdown]);
 
   useEffect(() => {
     const handleScroll = () => {
-      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
-      const scrolled = window.scrollY;
-      const progressPercent = scrollHeight > 0 ? (scrolled / scrollHeight) * 100 : 0;
-      setProgress(progressPercent);
+      const root = document.documentElement;
+      const distance = root.scrollHeight - window.innerHeight;
+      setProgress(distance > 0 ? Math.min(100, Math.max(0, (window.scrollY / distance) * 100)) : 0);
     };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
   }, []);
 
   return (
-    <div 
-      className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#191919] text-[#e6e6e6]' : 'bg-white text-gray-900'}`}
-      style={{ fontSize: \`\${fontSize}px\` }}
+    <div
+      className={`reader-shell min-h-screen transition-colors duration-200 ${darkMode ? 'reader-dark' : 'reader-light'}`}
+      style={{ '--reader-font-size': `${fontSize}px` } as CSSProperties}
     >
-      <main className="max-w-3xl mx-auto px-4 py-12 pb-24">
-        <h1 className={`text-4xl font-bold mb-8 tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-          {title}
-        </h1>
-        <MarkdownRenderer content={markdown} />
+      <div className="reader-progress" style={{ width: `${progress}%` }} />
+
+      <header className="reader-header">
+        <Link href="/" className="reader-back" aria-label="Back to ReflowPDF">
+          <ArrowLeft size={18} aria-hidden="true" />
+          <span>ReflowPDF</span>
+        </Link>
+        <span className="reader-progress-label">{Math.round(progress)}% read</span>
+      </header>
+
+      <main className="reader-main">
+        <article>
+          <h1 className="reader-title">{title}</h1>
+          <MarkdownRenderer content={markdown} />
+        </article>
       </main>
 
-      {/* Sticky Bottom Toolbar */}
-      <div className={`fixed bottom-0 left-0 right-0 border-t flex items-center justify-around p-4 backdrop-blur-md z-40 ${darkMode ? 'border-gray-800 bg-[#191919]/80 text-gray-300' : 'border-gray-200 bg-white/80 text-gray-700'}`}>
-        <button className="p-2 rounded-full hover:bg-gray-800/50 hover:text-white transition-colors" title="Table of Contents">
-          <List size={24} />
+      {tocOpen && (
+        <>
+          <button className="toc-backdrop" aria-label="Close contents" onClick={() => setTocOpen(false)} />
+          <nav className="toc-panel" aria-label="Table of contents">
+            <div className="toc-heading"><strong>On this page</strong><button onClick={() => setTocOpen(false)} aria-label="Close contents"><X size={18} /></button></div>
+            {headings.length ? headings.map((heading, index) => (
+              <a key={`${heading.id}-${index}`} href={`#${heading.id}`} className={`toc-link toc-level-${heading.level}`} onClick={() => setTocOpen(false)}>{heading.text}</a>
+            )) : <p className="toc-empty">No headings in this document.</p>}
+          </nav>
+        </>
+      )}
+
+      <nav className="reader-toolbar" aria-label="Reading controls">
+        <button onClick={() => setTocOpen(true)} aria-label="Open table of contents" title="Contents">
+          <List size={20} aria-hidden="true" /><span className="toolbar-label">Contents</span>
         </button>
-        
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => setFontSize(Math.max(12, fontSize - 2))}
-            className="font-bold text-lg p-2 rounded hover:bg-gray-800/50 hover:text-white transition-colors"
-            title="Decrease Font Size"
-          >
-            A-
-          </button>
-          <span className="text-sm font-medium w-10 text-center">{fontSize}px</span>
-          <button 
-            onClick={() => setFontSize(Math.min(24, fontSize + 2))}
-            className="font-bold text-lg p-2 rounded hover:bg-gray-800/50 hover:text-white transition-colors"
-            title="Increase Font Size"
-          >
-            A+
-          </button>
+        <div className="font-controls" aria-label={`Font size ${fontSize} pixels`}>
+          <button onClick={() => setFontSize((size) => Math.max(14, size - 1))} aria-label="Decrease text size" disabled={fontSize <= 14}>A−</button>
+          <span>{fontSize}</span>
+          <button onClick={() => setFontSize((size) => Math.min(23, size + 1))} aria-label="Increase text size" disabled={fontSize >= 23}>A+</button>
         </div>
-
-        <button 
-          onClick={() => setDarkMode(!darkMode)} 
-          className="p-2 rounded-full hover:bg-gray-800/50 hover:text-white transition-colors" 
-          title="Toggle Theme"
-        >
-          {darkMode ? <Sun size={24} /> : <Moon size={24} />}
+        <button onClick={() => setDarkMode((mode) => !mode)} aria-label={`Switch to ${darkMode ? 'light' : 'dark'} theme`} title="Toggle theme">
+          {darkMode ? <Sun size={20} aria-hidden="true" /> : <Moon size={20} aria-hidden="true" />}<span className="toolbar-label">Theme</span>
         </button>
-
-        <button className="p-2 rounded-full hover:bg-gray-800/50 hover:text-white transition-colors" title="Original PDF View">
-          <PanelRightClose size={24} />
-        </button>
-      </div>
-
-      {/* Progress Bar */}
-      <div 
-        className="fixed top-0 left-0 h-1 bg-blue-500 z-50 transition-all duration-150 ease-out"
-        style={{ width: \`\${progress}%\` }}
-      />
+      </nav>
     </div>
   );
 }

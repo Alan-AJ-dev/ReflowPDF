@@ -1,20 +1,28 @@
 import React from 'react';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { mockData } from '@/data/mockData';
+import { documentStore } from '@/data/store';
 import { notFound } from 'next/navigation';
 
-export default function ReaderPage({ params }: { params: { docId: string } }) {
-  // In a real app, you would fetch the parsed Markdown content based on the docId
-  // For demonstration, we fall back to our mock data if the ID matches, or show it anyway.
+export default async function ReaderPage({ params }: { params: Promise<{ docId: string }> }) {
+  const { docId } = await params;
   
-  if (!params.docId) {
+  let doc = undefined;
+  
+  if (docId === mockData.id) {
+    doc = mockData;
+  } else {
+    doc = documentStore.get(docId);
+  }
+
+  if (!doc) {
     notFound();
   }
 
   return (
     <DocumentViewer 
-      title={mockData.title}
-      markdown={mockData.markdown}
+      title={doc.title}
+      markdown={doc.markdown}
     />
   );
 }
