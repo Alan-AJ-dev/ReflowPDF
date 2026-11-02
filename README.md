@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ReflowPDF
 
-## Getting Started
+ReflowPDF turns PDFs into responsive Markdown documents for comfortable reading on phones and desktops.
 
-First, run the development server:
+## Run locally
 
-```bash
+The web app sends uploaded PDFs to a small Python parsing service. Run both processes in separate terminals:
+
+```powershell
+# Terminal 1: Python parser
+py -m venv .venv
+.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+.venv\Scripts\python.exe backend\main.py
+
+# Terminal 2: Next.js app
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+If Windows reports that no Python version is installed for `py`, install Python 3.12 first. This machine has a bundled Python runtime, so its project environment is already set up at `.venv`; use `.venv\Scripts\python.exe` for the parser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open `http://localhost:3000` on the computer. To try the app from a phone on the same Wi-Fi, start Next.js with `npm run dev -- --hostname 0.0.0.0` and open the computer's LAN address (for example, `http://192.168.1.20:3000`). Keep the Python parser running on that same computer; the Next.js server contacts it at `127.0.0.1:8000`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+For a separately hosted parser, set `PDF_PARSER_URL` in the Next.js server environment to its `/api/parse` endpoint. The current document store is a local JSON file, so uploaded documents are intended for a single persistent app instance and are not shared across separate deployments or instances.
 
-## Learn More
+## Reader behavior
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The reader uses a narrow text column, adjustable type size, light/dark themes, reading progress, and a contents panel. Tables and code/math blocks scroll within their own bounds on small screens so the full page can remain in portrait layout.
